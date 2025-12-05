@@ -1,8 +1,8 @@
 // Основная логика интерфейса
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Инициализация трейдинг симулятора...');
+    console.log('Загрузка трейдинг симулятора...');
     
-    // Инициализация всех компонентов
+    // Инициализация
     initTabs();
     initCoinSelector();
     initLeverageButtons();
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initModal();
     initInputHandlers();
     
-    // Первоначальное обновление UI
+    // Первоначальное обновление
     updateUI();
     updatePositionsList();
     updateHistoryList();
@@ -19,12 +19,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обновление UI каждую секунду
     setInterval(updateUI, 1000);
     
-    // Обновление списка позиций каждую секунду
+    // Обновление списка позиций каждые 2 секунды
     setInterval(() => {
         updatePositionsList();
-    }, 1000);
+    }, 2000);
     
-    console.log('Трейдинг симулятор успешно загружен!');
+    console.log('Трейдинг симулятор загружен!');
 });
 
 // Инициализация вкладок
@@ -48,7 +48,7 @@ function initTabs() {
                 }
             });
             
-            // При переключении на портфель или историю обновляем списки
+            // Обновляем данные при переключении
             if (tabId === 'portfolio') {
                 updatePositionsList();
             } else if (tabId === 'history') {
@@ -79,7 +79,6 @@ function initCoinSelector() {
                 window.tradingChart.setCoin(coin);
             }
             
-            // Обновляем UI
             updateUI();
         });
     });
@@ -97,12 +96,11 @@ function initLeverageButtons() {
             leverageButtons.forEach(btn => btn.classList.remove('active'));
             this.classList.add('active');
             
-            // Устанавливаем плечо в игре
+            // Устанавливаем плечо
             game.leverage = leverage;
             game.saveToStorage();
             
-            // Простое уведомление в консоль (без всплывающего)
-            console.log(`Плечо изменено на ${leverage}x`);
+            alert(`Плечо изменено на ${leverage}x`);
         });
     });
 }
@@ -130,7 +128,7 @@ function initQuickAmounts() {
             const amount = this.getAttribute('data-amount');
             document.getElementById('orderAmount').value = amount;
             
-            // Анимация кнопки
+            // Анимация
             this.classList.add('quick-btn-active');
             setTimeout(() => {
                 this.classList.remove('quick-btn-active');
@@ -176,12 +174,14 @@ function initInputHandlers() {
         game.stopLoss = value;
         game.saveToStorage();
         
-        // Обновляем линии на графике
+        // Обновляем маркеры на графике
         if (window.tradingChart) {
-            window.tradingChart.updatePositionMarkers();
+            setTimeout(() => {
+                window.tradingChart.updatePositionMarkers();
+            }, 100);
         }
         
-        console.log(`Стоп-лосс установлен на ${value}%`);
+        alert(`Стоп-лосс установлен на ${value}%`);
     });
     
     takeProfitInput.addEventListener('change', function() {
@@ -192,12 +192,14 @@ function initInputHandlers() {
         game.takeProfit = value;
         game.saveToStorage();
         
-        // Обновляем линии на графике
+        // Обновляем маркеры на графике
         if (window.tradingChart) {
-            window.tradingChart.updatePositionMarkers();
+            setTimeout(() => {
+                window.tradingChart.updatePositionMarkers();
+            }, 100);
         }
         
-        console.log(`Тейк-профит установлен на ${value}%`);
+        alert(`Тейк-профит установлен на ${value}%`);
     });
     
     orderAmountInput.addEventListener('change', function() {
@@ -208,18 +210,18 @@ function initInputHandlers() {
             alert(`Сумма не может превышать баланс ($${game.balance.toFixed(2)})`);
         }
     });
-    
-    orderAmountInput.addEventListener('input', function() {
-        // Ограничиваем ввод только цифрами и точкой
-        this.value = this.value.replace(/[^0-9.]/g, '');
-        
-        // Убираем лишние точки
-        const dots = (this.value.match(/\./g) || []).length;
-        if (dots > 1) {
-            this.value = this.value.replace(/\.+$/, "");
-        }
-    });
 }
+
+// Функция для уведомления о ликвидации
+window.showLiquidationNotification = function() {
+    const notification = document.getElementById('liquidationNotification');
+    if (notification) {
+        notification.classList.add('active');
+        setTimeout(() => {
+            notification.classList.remove('active');
+        }, 5000);
+    }
+};
 
 // Открытие позиции
 function openPosition(type) {
@@ -236,26 +238,25 @@ function openPosition(type) {
         return;
     }
     
-    // Получаем текущую цену перед открытием
     const currentPrice = game.coins[game.currentCoin].price;
     const leverage = game.leverage;
     const totalExposure = amount * leverage;
     
-    // Проверка на ликвидность
     if (totalExposure > game.balance * 10) {
-        alert('Слишком большая позиция для вашего баланса!');
+        alert('Слишком большая позиция!');
         return;
     }
     
-    // Подтверждение
-    const confirmationMessage = `Открыть ${type} позицию?\n\n` +
-                               `Монета: ${game.currentCoin}\n` +
-                               `Сумма: $${amount}\n` +
-                               `Плечо: ${leverage}x\n` +
-                               `Экспозиция: $${totalExposure.toFixed(2)}\n` +
-                               `Текущая цена: $${currentPrice.toFixed(8)}`;
+    const confirmation = `Открыть ${type} позицию?\n\n` +
+                        `Монета: ${game.currentCoin}\n` +
+                        `Сумма: $${amount}\n` +
+                        `Плечо: ${leverage}x\n` +
+                        `Экспозиция: $${totalExposure.toFixed(2)}\n` +
+                        `Цена: $${currentPrice.toFixed(8)}\n` +
+                        `Стоп-лосс: ${game.stopLoss}%\n` +
+                        `Тейк-профит: ${game.takeProfit}%`;
     
-    if (!confirm(confirmationMessage)) {
+    if (!confirm(confirmation)) {
         return;
     }
     
@@ -272,8 +273,7 @@ function openPosition(type) {
         updatePositionsList();
         updateHistoryList();
         
-        // Показываем простой alert
-        alert(`${type} позиция ${game.currentCoin} на $${amount} открыта!`);
+        alert(`${type} позиция открыта!\nСумма: $${amount}\nПлечо: ${leverage}x`);
         
         // Обновляем график
         if (window.tradingChart) {
@@ -292,18 +292,19 @@ function closePosition(positionId) {
     if (!position) return;
     
     const currentPrice = game.coins[position.coin].price;
-    const pnl = (position.type === 'LONG') 
-        ? (currentPrice - position.entryPrice) * position.amount * position.leverage
-        : (position.entryPrice - currentPrice) * position.amount * position.leverage;
+    const leverage = position.leverage;
+    const pnl = position.type === 'LONG' 
+        ? (currentPrice - position.entryPrice) * position.amount * leverage
+        : (position.entryPrice - currentPrice) * position.amount * leverage;
     
-    const confirmationMessage = `Закрыть позицию?\n\n` +
-                               `Монета: ${position.coin}\n` +
-                               `Тип: ${position.type}\n` +
-                               `Вход: $${position.entryPrice.toFixed(8)}\n` +
-                               `Текущая: $${currentPrice.toFixed(8)}\n` +
-                               `P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+    const confirmation = `Закрыть позицию?\n\n` +
+                        `Монета: ${position.coin}\n` +
+                        `Тип: ${position.type}\n` +
+                        `Вход: $${position.entryPrice.toFixed(8)}\n` +
+                        `Текущая: $${currentPrice.toFixed(8)}\n` +
+                        `P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
     
-    if (!confirm(confirmationMessage)) {
+    if (!confirm(confirmation)) {
         return;
     }
     
@@ -314,9 +315,8 @@ function closePosition(positionId) {
     updatePositionsList();
     updateHistoryList();
     
-    // Показываем результат
     const pnlFormatted = closedPnl >= 0 ? `+$${closedPnl.toFixed(2)}` : `-$${Math.abs(closedPnl).toFixed(2)}`;
-    alert(`Позиция закрыта! P&L: ${pnlFormatted}`);
+    alert(`Позиция закрыта!\nP&L: ${pnlFormatted}`);
     
     // Обновляем график
     if (window.tradingChart) {
@@ -326,7 +326,7 @@ function closePosition(positionId) {
     }
 }
 
-// Обновление всего UI
+// Обновление UI
 function updateUI() {
     // Обновляем баланс
     const balanceElement = document.getElementById('balance');
@@ -335,18 +335,6 @@ function updateUI() {
     if (balanceElement) {
         const formattedBalance = game.balance.toFixed(2);
         balanceElement.textContent = `$${formattedBalance}`;
-        
-        // Анимация баланса
-        const currentBalance = parseFloat(formattedBalance);
-        const lastBalance = parseFloat(balanceElement.dataset.lastBalance || '1000.00');
-        
-        if (Math.abs(currentBalance - lastBalance) > 0.01) {
-            balanceElement.classList.add('balance-updated');
-            setTimeout(() => {
-                balanceElement.classList.remove('balance-updated');
-            }, 1000);
-            balanceElement.dataset.lastBalance = currentBalance;
-        }
     }
     
     // Обновляем P&L
@@ -357,10 +345,10 @@ function updateUI() {
         pnlElement.className = totalPnl >= 0 ? 'pnl-amount pnl-positive' : 'pnl-amount pnl-negative';
     }
     
-    // Обновляем цены монет
+    // Обновляем цены
     updateCoinPrices();
     
-    // Обновляем доступную сумму для торговли
+    // Обновляем доступную сумму
     updateAvailableAmount();
 }
 
@@ -368,21 +356,18 @@ function updateUI() {
 function updateCoinPrices() {
     Object.keys(game.coins).forEach(coinName => {
         const coin = game.coins[coinName];
-        const coinPrice = coin.price;
-        
-        // Находим элемент цены для этой монеты
         const priceElement = document.getElementById(`price-${coinName.toLowerCase()}`);
+        
         if (priceElement) {
             const oldPrice = parseFloat(priceElement.dataset.lastPrice || '0');
+            const newPrice = coin.price;
             
-            // Обновляем только если цена изменилась
-            if (Math.abs(coinPrice - oldPrice) > 0) {
-                priceElement.textContent = `$${coinPrice.toFixed(8)}`;
-                priceElement.dataset.lastPrice = coinPrice;
+            if (Math.abs(newPrice - oldPrice) > 0) {
+                priceElement.textContent = `$${newPrice.toFixed(8)}`;
+                priceElement.dataset.lastPrice = newPrice;
                 
-                // Анимация изменения цены
+                // Анимация
                 priceElement.classList.add('price-update');
-                
                 setTimeout(() => {
                     priceElement.classList.remove('price-update');
                 }, 500);
@@ -398,7 +383,6 @@ function updateAvailableAmount() {
         const maxAmount = Math.min(game.balance, 1000);
         orderAmountInput.max = maxAmount;
         
-        // Если текущее значение больше доступного, уменьшаем его
         const currentValue = parseFloat(orderAmountInput.value) || 100;
         if (currentValue > maxAmount) {
             orderAmountInput.value = maxAmount;
@@ -418,18 +402,14 @@ window.updatePositionsList = function() {
     
     let html = '';
     
-    // Сортируем позиции по времени (новые сверху)
-    const sortedPositions = [...game.positions].sort((a, b) => b.timestamp - a.timestamp);
-    
-    sortedPositions.forEach((position, index) => {
+    game.positions.forEach(position => {
         const coin = game.coins[position.coin];
         if (!coin) return;
         
         const currentPrice = coin.price;
         
-        // Расчет текущего P&L
+        // Расчет P&L
         let currentPnl, pnlPercent;
-        
         if (position.type === 'LONG') {
             currentPnl = (currentPrice - position.entryPrice) * position.amount * position.leverage;
             pnlPercent = ((currentPrice - position.entryPrice) / position.entryPrice * 100);
@@ -450,9 +430,9 @@ window.updatePositionsList = function() {
         const pnlText = currentPnl >= 0 ? `+$${currentPnl.toFixed(2)}` : `-$${Math.abs(currentPnl).toFixed(2)}`;
         const pnlPercentText = pnlPercent >= 0 ? `+${pnlPercent.toFixed(2)}%` : `${pnlPercent.toFixed(2)}%`;
         
-        // Время открытия
-        const openTime = new Date(position.timestamp);
-        const timeString = `${openTime.getHours().toString().padStart(2, '0')}:${openTime.getMinutes().toString().padStart(2, '0')}`;
+        // Время
+        const time = new Date(position.timestamp);
+        const timeString = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
         
         html += `
             <div class="position-item ${position.type === 'LONG' ? 'position-long' : 'position-short'}">
@@ -485,7 +465,7 @@ window.updatePositionsList = function() {
     positionsList.innerHTML = html;
 };
 
-// Обновление списка истории
+// Обновление истории
 window.updateHistoryList = function() {
     const historyList = document.getElementById('historyList');
     if (!historyList) return;
@@ -497,29 +477,18 @@ window.updateHistoryList = function() {
     
     let html = '';
     
-    // Показываем последние 20 сделок
     game.history.slice(0, 20).forEach(trade => {
         const pnlClass = trade.pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
         const pnlText = trade.pnl >= 0 ? `+$${trade.pnl.toFixed(2)}` : `-$${Math.abs(trade.pnl).toFixed(2)}`;
         
-        let actionText, actionClass;
-        
+        let actionText;
         switch(trade.action) {
-            case 'OPEN':
-                actionText = 'Открытие';
-                actionClass = 'info';
-                break;
-            case 'CLOSE':
-                actionText = 'Закрытие';
-                actionClass = trade.pnl >= 0 ? 'success' : 'error';
-                break;
-            case 'LIQUIDATED':
-                actionText = 'Ликвидация';
-                actionClass = 'error';
-                break;
-            default:
-                actionText = 'Сделка';
-                actionClass = 'info';
+            case 'OPEN': actionText = 'Открытие'; break;
+            case 'CLOSE': actionText = 'Закрытие'; break;
+            case 'STOP_LOSS': actionText = 'Стоп-лосс'; break;
+            case 'TAKE_PROFIT': actionText = 'Тейк-профит'; break;
+            case 'LIQUIDATED': actionText = 'Ликвидация'; break;
+            default: actionText = 'Сделка';
         }
         
         const time = new Date(trade.timestamp);
@@ -551,12 +520,11 @@ window.updateHistoryList = function() {
     historyList.innerHTML = html;
 };
 
-// Обновление таблицы рейтинга (по балансу)
+// Обновление рейтинга
 function updateRatingTable() {
     const tableBody = document.getElementById('ratingTableBody');
     if (!tableBody) return;
     
-    // Обновляем данные игроков
     game.players = game.generatePlayers();
     
     let html = '';
@@ -566,7 +534,6 @@ function updateRatingTable() {
         const pnlClass = player.pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
         const pnlText = player.pnl >= 0 ? `+$${player.pnl.toFixed(2)}` : `-$${Math.abs(player.pnl).toFixed(2)}`;
         
-        // Медальки для первых трех мест
         let medal = '';
         if (index === 0) medal = '🥇';
         else if (index === 1) medal = '🥈';
@@ -585,7 +552,5 @@ function updateRatingTable() {
     tableBody.innerHTML = html;
 }
 
-// Экспортируем функции для глобального использования
+// Экспорт функций
 window.closePosition = closePosition;
-
-console.log('Script.js полностью загружен!');
