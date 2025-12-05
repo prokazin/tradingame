@@ -52,12 +52,7 @@
                 <!-- График -->
                 <div class="chart-container">
                     <div id="chart"></div>
-                    <div class="chart-controls">
-                        <button class="timeframe-btn active" data-tf="1m">1M</button>
-                        <button class="timeframe-btn" data-tf="5m">5M</button>
-                        <button class="timeframe-btn" data-tf="15m">15M</button>
-                        <button class="timeframe-btn" data-tf="1h">1H</button>
-                    </div>
+                    <!-- УБРАЛИ ВРЕМЕННЫЕ ИНТЕРВАЛЫ -->
                 </div>
 
                 <!-- Панель ордера -->
@@ -151,23 +146,6 @@
                 <span>Позиция ликвидирована! Баланс обнулен.</span>
             </div>
         </div>
-
-        <!-- Кнопка сброса (только для разработки) -->
-        <button class="reset-btn" id="resetGame" style="
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(255, 59, 48, 0.2);
-            color: #ff3b30;
-            border: 1px solid #ff3b30;
-            border-radius: 20px;
-            padding: 8px 12px;
-            font-size: 12px;
-            cursor: pointer;
-            z-index: 1000;
-        ">
-            <i class="fas fa-redo"></i> Сброс
-        </button>
     </div>
 
     <!-- Скрипты -->
