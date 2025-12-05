@@ -590,3 +590,56 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
 }
+
+/* Анимация обновления цены */
+.price-update {
+    animation: pricePulse 0.5s ease-in-out;
+}
+
+@keyframes pricePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Стили для упрощенного графика */
+#simpleChart {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+/* Улучшенные стили для графика */
+.chart-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.chart-error {
+    color: #ff6b6b;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Адаптация для мобильных устройств */
+@media (max-width: 480px) {
+    .chart-container {
+        height: 250px;
+    }
+    
+    #chart {
+        height: 180px;
+    }
+}
