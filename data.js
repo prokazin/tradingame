@@ -44,77 +44,114 @@ class TradingGame {
         this.startPriceUpdates();
     }
     
-    // Генерация исторических данных
-    generatePriceHistory(initialPrice, minPrice, maxPrice) {
-        const history = [];
-        let currentPrice = initialPrice;
-        const now = Date.now();
+  // Обновленный метод generatePriceHistory в классе TradingGame
+generatePriceHistory(initialPrice, minPrice, maxPrice) {
+    const history = [];
+    let currentPrice = initialPrice;
+    const now = Date.now();
+    
+    // Более реалистичная генерация с трендами
+    let trend = (Math.random() - 0.5) * 0.0001; // Начальный тренд
+    let volatility = 0.00005; // Базовая волатильность
+    
+    for (let i = 300; i >= 0; i--) {
+        const time = now - (i * 60000); // 1 минута интервал
         
-        for (let i = 200; i >= 0; i--) {
-            const time = now - (i * 60000); // 1 минута интервал
-            // Случайное движение цены
-            const change = (Math.random() - 0.5) * 0.001 * currentPrice;
-            currentPrice += change;
-            
-            // Ограничение цены в разумных пределах
-            if (currentPrice < minPrice) currentPrice = minPrice * (1 + Math.random() * 0.1);
-            if (currentPrice > maxPrice) currentPrice = maxPrice * (1 - Math.random() * 0.1);
-            
-            history.push({
-                time: time / 1000, // В секундах для TradingView
-                value: currentPrice
-            });
+        // Иногда меняем тренд
+        if (Math.random() < 0.05) {
+            trend = (Math.random() - 0.5) * 0.0001;
         }
         
-        return history;
+        // Иногда меняем волатильность
+        if (Math.random() < 0.1) {
+            volatility = 0.00002 + Math.random() * 0.0001;
+        }
+        
+        // Добавляем тренд и случайное движение
+        const randomWalk = (Math.random() - 0.5) * 2 * volatility * currentPrice;
+        currentPrice = currentPrice * (1 + trend) + randomWalk;
+        
+        // Ограничение цены
+        currentPrice = Math.max(minPrice * 0.9, Math.min(maxPrice * 1.1, currentPrice));
+        
+        // Иногда добавляем "спайки" (резкие движения)
+        if (Math.random() < 0.02) {
+            const spike = (Math.random() - 0.5) * 0.001 * currentPrice;
+            currentPrice += spike;
+        }
+        
+        history.push({
+            time: time / 1000,
+            value: currentPrice
+        });
     }
     
-    // Обновление цен в реальном времени
-    startPriceUpdates() {
-        setInterval(() => {
-            Object.keys(this.coins).forEach(coinName => {
-                const coin = this.coins[coinName];
-                const lastPrice = coin.history[coin.history.length - 1].value;
-                
-                // Генерация нового значения цены
-                const volatility = 0.0002; // 0.02% волатильность
-                const change = lastPrice * volatility * (Math.random() - 0.5);
-                let newPrice = lastPrice + change;
-                
-                // Ограничение цены
-                const minPrice = coinName === 'SHIBA' ? 0.000005 : 
-                                coinName === 'PEPE' ? 0.0000008 : 0.000010;
-                const maxPrice = coinName === 'SHIBA' ? 0.000012 : 
-                                coinName === 'PEPE' ? 0.0000018 : 0.000022;
-                
-                if (newPrice < minPrice) newPrice = minPrice * (1 + Math.random() * 0.05);
-                if (newPrice > maxPrice) newPrice = maxPrice * (1 - Math.random() * 0.05);
-                
-                // Обновление цены
-                coin.price = newPrice;
-                coin.history.push({
-                    time: Date.now() / 1000,
-                    value: newPrice
-                });
-                
-                // Удаление старых данных
-                if (coin.history.length > 500) {
-                    coin.history.shift();
-                }
+    return history;
+}
+
+// Обновленный метод startPriceUpdates для более плавного обновления
+startPriceUpdates() {
+    setInterval(() => {
+        Object.keys(this.coins).forEach(coinName => {
+            const coin = this.coins[coinName];
+            const lastPrice = coin.price;
+            
+            // Более реалистичное обновление цены
+            const volatility = coinName === 'SHIBA' ? 0.0003 : 
+                             coinName === 'PEPE' ? 0.0004 : 0.00025;
+            
+            // Тренд зависит от времени (имитация рыночных сессий)
+            const hour = new Date().getHours();
+            let sessionFactor = 1.0;
+            
+            if (hour >= 9 && hour <= 17) {
+                sessionFactor = 1.5; // "Рабочие часы" - больше движения
+            } else if (hour >= 0 && hour <= 5) {
+                sessionFactor = 0.7; // Ночь - меньше движения
+            }
+            
+            // Случайное изменение с нормальным распределением
+            const change = lastPrice * volatility * sessionFactor * (Math.random() - 0.5);
+            
+            // Небольшой тренд в случайном направлении
+            const trend = lastPrice * 0.00001 * (Math.random() - 0.5);
+            
+            let newPrice = lastPrice + change + trend;
+            
+            // Ограничение цены
+            const minPrice = coinName === 'SHIBA' ? 0.000005 : 
+                            coinName === 'PEPE' ? 0.0000008 : 0.000010;
+            const maxPrice = coinName === 'SHIBA' ? 0.000012 : 
+                            coinName === 'PEPE' ? 0.0000018 : 0.000022;
+            
+            if (newPrice < minPrice) newPrice = minPrice * (1 + Math.random() * 0.05);
+            if (newPrice > maxPrice) newPrice = maxPrice * (1 - Math.random() * 0.05);
+            
+            // Обновление цены
+            coin.price = newPrice;
+            coin.history.push({
+                time: Date.now() / 1000,
+                value: newPrice
             });
             
-            // Проверка позиций на ликвидацию и тейк-профит/стоп-лосс
-            this.checkPositions();
-            
-            // Сохранение состояния
-            this.saveToStorage();
-            
-            // Обновление UI
-            if (window.updatePrices) window.updatePrices();
-            if (window.updatePositions) window.updatePositions();
-            
-        }, 5000); // Обновление каждые 5 секунд
-    }
+            // Удаление старых данных (сохраняем последние 500 точек)
+            if (coin.history.length > 500) {
+                coin.history.shift();
+            }
+        });
+        
+        // Проверка позиций
+        this.checkPositions();
+        
+        // Сохранение состояния
+        this.saveToStorage();
+        
+        // Обновление UI
+        if (window.updatePrices) window.updatePrices();
+        if (window.updatePositions) window.updatePositions();
+        
+    }, 3000); // Обновление каждые 3 секунды
+}
     
     // Открытие позиции
     openPosition(type, amount) {
