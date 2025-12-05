@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Трейдинг Симулятор | Telegram</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Верхняя панель с балансом и рейтингом -->
+        <header class="header">
+            <div class="balance-section">
+                <div class="balance">
+                    <span class="balance-label">Баланс:</span>
+                    <span class="balance-amount" id="balance">$1,000.00</span>
+                </div>
+                <div class="pnl">
+                    <span class="pnl-label">P&L:</span>
+                    <span class="pnl-amount" id="pnl">+$0.00</span>
+                </div>
+            </div>
+            <button class="btn-rating" id="showRating">
+                <i class="fas fa-trophy"></i> Рейтинг
+            </button>
+        </header>
+
+        <!-- Основные вкладки -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="trade"><i class="fas fa-chart-line"></i> Торговля</button>
+            <button class="tab-btn" data-tab="portfolio"><i class="fas fa-wallet"></i> Портфель</button>
+            <button class="tab-btn" data-tab="history"><i class="fas fa-history"></i> История</button>
+        </div>
+
+        <!-- Контент вкладок -->
+        <div class="tab-content">
+            <!-- Вкладка Торговля -->
+            <div id="trade-tab" class="tab-pane active">
+                <!-- Выбор монеты -->
+                <div class="coin-selector">
+                    <h3>Выберите монету:</h3>
+                    <div class="coin-buttons">
+                        <button class="coin-btn active" data-coin="SHIBA"><i class="fas fa-dog"></i> SHIBA <span class="coin-price" id="price-shiba">$0.000008</span></button>
+                        <button class="coin-btn" data-coin="PEPE"><i class="fas fa-frog"></i> PEPE <span class="coin-price" id="price-pepe">$0.0000012</span></button>
+                        <button class="coin-btn" data-coin="BONK"><i class="fas fa-coins"></i> BONK <span class="coin-price" id="price-bonk">$0.000015</span></button>
+                    </div>
+                </div>
+
+                <!-- График -->
+                <div class="chart-container">
+                    <div id="chart"></div>
+                    <div class="chart-controls">
+                        <button class="timeframe-btn active" data-tf="1m">1M</button>
+                        <button class="timeframe-btn" data-tf="5m">5M</button>
+                        <button class="timeframe-btn" data-tf="15m">15M</button>
+                        <button class="timeframe-btn" data-tf="1h">1H</button>
+                    </div>
+                </div>
+
+                <!-- Панель ордера -->
+                <div class="order-panel">
+                    <div class="order-type">
+                        <button class="order-type-btn active" data-type="market">Рыночный</button>
+                        <button class="order-type-btn" data-type="limit">Лимитный</button>
+                    </div>
+
+                    <div class="position-size">
+                        <label>Сумма ($):</label>
+                        <input type="number" id="orderAmount" min="1" max="1000" value="100">
+                        <div class="quick-amounts">
+                            <button class="quick-btn" data-amount="50">$50</button>
+                            <button class="quick-btn" data-amount="100">$100</button>
+                            <button class="quick-btn" data-amount="200">$200</button>
+                            <button class="quick-btn" data-amount="500">$500</button>
+                        </div>
+                    </div>
+
+                    <div class="leverage-selector">
+                        <label>Плечо:</label>
+                        <div class="leverage-buttons">
+                            <button class="leverage-btn" data-leverage="1">1x</button>
+                            <button class="leverage-btn" data-leverage="2">2x</button>
+                            <button class="leverage-btn active" data-leverage="5">5x</button>
+                            <button class="leverage-btn" data-leverage="10">10x</button>
+                        </div>
+                    </div>
+
+                    <div class="stop-loss-take-profit">
+                        <div class="sl-tp-input">
+                            <label for="stopLoss">Стоп-лосс (%)</label>
+                            <input type="number" id="stopLoss" min="1" max="50" value="5">
+                        </div>
+                        <div class="sl-tp-input">
+                            <label for="takeProfit">Тейк-профит (%)</label>
+                            <input type="number" id="takeProfit" min="1" max="100" value="10">
+                        </div>
+                    </div>
+
+                    <!-- Кнопки сделок -->
+                    <div class="trade-buttons">
+                        <button class="btn-long" id="btnLong"><i class="fas fa-arrow-up"></i> ЛОНГ</button>
+                        <button class="btn-short" id="btnShort"><i class="fas fa-arrow-down"></i> ШОРТ</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка Портфель -->
+            <div id="portfolio-tab" class="tab-pane">
+                <h3>Ваши позиции</h3>
+                <div class="positions-list" id="positionsList">
+                    <div class="no-positions">У вас нет открытых позиций</div>
+                </div>
+                
+                <h3>Ордера на закрытие</h3>
+                <div class="orders-list" id="ordersList">
+                    <div class="no-orders">Нет активных ордеров</div>
+                </div>
+            </div>
+
+            <!-- Вкладка История -->
+            <div id="history-tab" class="tab-pane">
+                <h3>История сделок</h3>
+                <div class="history-list" id="historyList">
+                    <div class="no-history">История сделок пуста</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно рейтинга -->
+        <div class="modal" id="ratingModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-trophy"></i> Рейтинг игроков</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <table class="rating-table">
+                        <thead>
+                            <tr>
+                                <th>Место</th>
+                                <th>Игрок</th>
+                                <th>Баланс</th>
+                                <th>P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ratingTableBody">
+                            <!-- Данные рейтинга будут здесь -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Уведомление о ликвидации -->
+        <div class="notification" id="liquidationNotification">
+            <div class="notification-content">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Позиция ликвидирована! Баланс обнулен.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрипты -->
+    <script src="data.js"></script>
+    <script src="chart.js"></script>
+    <script src="script.js"></script>
+    <script src="telegram-webapp.js"></script>
+</body>
+</html>
