@@ -1,40 +1,53 @@
-// Модель данных для игры
+// Модель данных для игры с событийным движением цен
 class TradingGame {
     constructor() {
         this.balance = 1000.00;
         this.initialBalance = 1000.00;
         this.positions = [];
         this.history = [];
-        this.orders = [];
         this.currentCoin = 'SHIBA';
         this.leverage = 5;
         this.stopLoss = 5;
         this.takeProfit = 10;
+        this.events = [];
+        this.eventInterval = null;
         
-        // Данные по монетам
+        // Данные по монетам с начальными ценами
         this.coins = {
             'SHIBA': {
                 name: 'SHIBA',
                 price: 0.000008,
                 icon: 'fas fa-dog',
                 color: '#FF6B6B',
-                history: this.generatePriceHistory(0.000008, 0.000005, 0.000012)
+                history: [],
+                volume: 0, // Объем торгов
+                trend: 0, // Тренд: -1 (падение), 0 (нейтрально), 1 (рост)
+                volatility: 0.0001 // Базовая волатильность
             },
             'PEPE': {
                 name: 'PEPE',
                 price: 0.0000012,
                 icon: 'fas fa-frog',
                 color: '#4ECDC4',
-                history: this.generatePriceHistory(0.0000012, 0.0000008, 0.0000018)
+                history: [],
+                volume: 0,
+                trend: 0,
+                volatility: 0.0002
             },
             'BONK': {
                 name: 'BONK',
                 price: 0.000015,
                 icon: 'fas fa-coins',
                 color: '#FFD166',
-                history: this.generatePriceHistory(0.000015, 0.000010, 0.000022)
+                history: [],
+                volume: 0,
+                trend: 0,
+                volatility: 0.00015
             }
         };
+        
+        // Инициализация истории цен
+        this.initializePriceHistory();
         
         // Имитация других игроков для рейтинга
         this.players = this.generatePlayers();
@@ -42,118 +55,242 @@ class TradingGame {
         // Инициализация
         this.loadFromStorage();
         this.startPriceUpdates();
+        this.startEventSystem();
     }
     
-  // Обновленный метод generatePriceHistory в классе TradingGame
-generatePriceHistory(initialPrice, minPrice, maxPrice) {
-    const history = [];
-    let currentPrice = initialPrice;
-    const now = Date.now();
-    
-    // Более реалистичная генерация с трендами
-    let trend = (Math.random() - 0.5) * 0.0001; // Начальный тренд
-    let volatility = 0.00005; // Базовая волатильность
-    
-    for (let i = 300; i >= 0; i--) {
-        const time = now - (i * 60000); // 1 минута интервал
+    // Инициализация исторических данных
+    initializePriceHistory() {
+        const now = Date.now();
         
-        // Иногда меняем тренд
-        if (Math.random() < 0.05) {
-            trend = (Math.random() - 0.5) * 0.0001;
-        }
-        
-        // Иногда меняем волатильность
-        if (Math.random() < 0.1) {
-            volatility = 0.00002 + Math.random() * 0.0001;
-        }
-        
-        // Добавляем тренд и случайное движение
-        const randomWalk = (Math.random() - 0.5) * 2 * volatility * currentPrice;
-        currentPrice = currentPrice * (1 + trend) + randomWalk;
-        
-        // Ограничение цены
-        currentPrice = Math.max(minPrice * 0.9, Math.min(maxPrice * 1.1, currentPrice));
-        
-        // Иногда добавляем "спайки" (резкие движения)
-        if (Math.random() < 0.02) {
-            const spike = (Math.random() - 0.5) * 0.001 * currentPrice;
-            currentPrice += spike;
-        }
-        
-        history.push({
-            time: time / 1000,
-            value: currentPrice
-        });
-    }
-    
-    return history;
-}
-
-// Обновленный метод startPriceUpdates для более плавного обновления
-startPriceUpdates() {
-    setInterval(() => {
         Object.keys(this.coins).forEach(coinName => {
             const coin = this.coins[coinName];
-            const lastPrice = coin.price;
+            coin.history = [];
             
-            // Более реалистичное обновление цены
-            const volatility = coinName === 'SHIBA' ? 0.0003 : 
-                             coinName === 'PEPE' ? 0.0004 : 0.00025;
+            // Генерируем 200 точек данных с небольшими флуктуациями
+            let currentPrice = coin.price;
             
-            // Тренд зависит от времени (имитация рыночных сессий)
-            const hour = new Date().getHours();
-            let sessionFactor = 1.0;
-            
-            if (hour >= 9 && hour <= 17) {
-                sessionFactor = 1.5; // "Рабочие часы" - больше движения
-            } else if (hour >= 0 && hour <= 5) {
-                sessionFactor = 0.7; // Ночь - меньше движения
+            for (let i = 200; i >= 0; i--) {
+                const time = now - (i * 60000); // 1 минута интервал
+                
+                // Небольшие случайные колебания
+                const fluctuation = currentPrice * coin.volatility * (Math.random() - 0.5);
+                currentPrice += fluctuation;
+                
+                // Гарантируем, что цена останется в разумных пределах
+                currentPrice = Math.max(currentPrice * 0.5, Math.min(currentPrice * 1.5, currentPrice));
+                
+                coin.history.push({
+                    time: time / 1000,
+                    value: currentPrice
+                });
             }
             
-            // Случайное изменение с нормальным распределением
-            const change = lastPrice * volatility * sessionFactor * (Math.random() - 0.5);
+            // Устанавливаем текущую цену
+            coin.price = currentPrice;
+        });
+    }
+    
+    // Система событий
+    startEventSystem() {
+        // Создаем 30 событий (15 положительных, 15 отрицательных)
+        this.generateEvents();
+        
+        // Запускаем события каждые 1.5 минуты (90 секунд)
+        this.eventInterval = setInterval(() => {
+            this.processNextEvent();
+        }, 90000); // 90 секунд
+        
+        // Первое событие через 30 секунд после запуска
+        setTimeout(() => {
+            this.processNextEvent();
+        }, 30000);
+    }
+    
+    generateEvents() {
+        const eventTypes = [
+            {
+                type: 'POSITIVE',
+                messages: [
+                    '📈 Крупный инвестор купил монету!',
+                    '🚀 Проект анонсировал партнерство!',
+                    '💎 Листинг на новой бирже!',
+                    '🔥 Взрывной рост интереса!',
+                    '🌟 Важная технологическая новость!',
+                    '📰 Положительные новости в СМИ!',
+                    '🤝 Крупное сотрудничество!',
+                    '🎯 Достигнута важная веха!',
+                    '💼 Институциональные инвесторы вошли!',
+                    '⚡ Улучшение технологии сети!',
+                    '🌍 Глобальное расширение!',
+                    '🏆 Проект получил награду!',
+                    '🔝 Вошел в топ рейтингов!',
+                    '💫 Сообщество активно растет!',
+                    '🚪 Открытие новых рынков!'
+                ],
+                impact: 0.02 // +2% к цене
+            },
+            {
+                type: 'NEGATIVE',
+                messages: [
+                    '📉 Крупный инвестор продал монету!',
+                    '⚠️ Технические проблемы сети!',
+                    '🔻 Проект потерял партнера!',
+                    '💔 Негативные новости в СМИ!',
+                    '🚫 Проблемы с регулированием!',
+                    '📉 Паника на рынке!',
+                    '👎 Критика от экспертов!',
+                    '💸 Финансовые проблемы проекта!',
+                    '🔽 Делистинг с биржи!',
+                    '⚠️ Взлом или безопасность!',
+                    '📛 Юридические проблемы!',
+                    '💔 Сообщество недовольно!',
+                    '📉 Падение торговых объемов!',
+                    '🚷 Ограничения в использовании!',
+                    '🔻 Технологические сложности!'
+                ],
+                impact: -0.02 // -2% к цене
+            }
+        ];
+        
+        this.events = [];
+        
+        // Создаем 15 положительных событий
+        for (let i = 0; i < 15; i++) {
+            const eventType = eventTypes[0];
+            const message = eventType.messages[Math.floor(Math.random() * eventType.messages.length)];
             
-            // Небольшой тренд в случайном направлении
-            const trend = lastPrice * 0.00001 * (Math.random() - 0.5);
-            
-            let newPrice = lastPrice + change + trend;
-            
-            // Ограничение цены
-            const minPrice = coinName === 'SHIBA' ? 0.000005 : 
-                            coinName === 'PEPE' ? 0.0000008 : 0.000010;
-            const maxPrice = coinName === 'SHIBA' ? 0.000012 : 
-                            coinName === 'PEPE' ? 0.0000018 : 0.000022;
-            
-            if (newPrice < minPrice) newPrice = minPrice * (1 + Math.random() * 0.05);
-            if (newPrice > maxPrice) newPrice = maxPrice * (1 - Math.random() * 0.05);
-            
-            // Обновление цены
-            coin.price = newPrice;
-            coin.history.push({
-                time: Date.now() / 1000,
-                value: newPrice
+            this.events.push({
+                type: 'POSITIVE',
+                message: message,
+                impact: eventType.impact + (Math.random() * 0.01 - 0.005), // ±0.5% вариация
+                coin: this.getRandomCoin(),
+                timestamp: Date.now() + (i * 90000) // Распределяем по времени
             });
+        }
+        
+        // Создаем 15 отрицательных событий
+        for (let i = 0; i < 15; i++) {
+            const eventType = eventTypes[1];
+            const message = eventType.messages[Math.floor(Math.random() * eventType.messages.length)];
             
-            // Удаление старых данных (сохраняем последние 500 точек)
-            if (coin.history.length > 500) {
-                coin.history.shift();
-            }
+            this.events.push({
+                type: 'NEGATIVE',
+                message: message,
+                impact: eventType.impact + (Math.random() * 0.01 - 0.005), // ±0.5% вариация
+                coin: this.getRandomCoin(),
+                timestamp: Date.now() + ((15 + i) * 90000) // Распределяем после положительных
+            });
+        }
+        
+        // Перемешиваем события
+        this.events = this.shuffleArray(this.events);
+    }
+    
+    processNextEvent() {
+        if (this.events.length === 0) {
+            this.generateEvents(); // Регенерируем события если закончились
+        }
+        
+        const event = this.events.shift();
+        const coin = this.coins[event.coin];
+        
+        // Применяем влияние события к цене
+        const oldPrice = coin.price;
+        const newPrice = oldPrice * (1 + event.impact);
+        
+        // Обновляем цену и историю
+        coin.price = newPrice;
+        coin.history.push({
+            time: Date.now() / 1000,
+            value: newPrice
         });
         
-        // Проверка позиций
+        // Удаляем старые данные
+        if (coin.history.length > 500) {
+            coin.history.shift();
+        }
+        
+        // Обновляем тренд монеты
+        coin.trend = event.impact > 0 ? 1 : -1;
+        
+        // Показываем уведомление
+        if (window.showEventNotification) {
+            window.showEventNotification(event);
+        }
+        
+        // Проверяем позиции на ликвидацию и тейк-профит/стоп-лосс
         this.checkPositions();
         
-        // Сохранение состояния
+        // Сохраняем состояние
         this.saveToStorage();
         
-        // Обновление UI
+        // Обновляем UI
         if (window.updatePrices) window.updatePrices();
         if (window.updatePositions) window.updatePositions();
         
-    }, 3000); // Обновление каждые 3 секунды
-}
+        console.log(`Событие: ${event.message} | Монета: ${event.coin} | Влияние: ${(event.impact * 100).toFixed(2)}%`);
+    }
     
-    // Открытие позиции
+    // Обновление цен в реальном времени с влиянием объемов торгов
+    startPriceUpdates() {
+        setInterval(() => {
+            Object.keys(this.coins).forEach(coinName => {
+                const coin = this.coins[coinName];
+                const lastPrice = coin.price;
+                
+                // Базовое движение цены (небольшие флуктуации)
+                let priceChange = 0;
+                
+                // Влияние объема торгов
+                if (coin.volume > 0) {
+                    // Чем больше объем, тем сильнее движение
+                    const volumeImpact = coin.volume * 0.000001;
+                    priceChange += volumeImpact * (coin.trend >= 0 ? 1 : -1);
+                }
+                
+                // Случайные флуктуации
+                const randomFluctuation = lastPrice * coin.volatility * (Math.random() - 0.5) * 0.5;
+                priceChange += randomFluctuation;
+                
+                // Постепенное возвращение тренда к нейтральному
+                coin.trend *= 0.95;
+                if (Math.abs(coin.trend) < 0.01) coin.trend = 0;
+                
+                let newPrice = lastPrice + priceChange;
+                
+                // Гарантируем, что цена не уйдет в ноль или бесконечность
+                newPrice = Math.max(newPrice * 0.999, Math.min(newPrice * 1.001, newPrice));
+                
+                // Обновление цены
+                coin.price = newPrice;
+                coin.history.push({
+                    time: Date.now() / 1000,
+                    value: newPrice
+                });
+                
+                // Удаление старых данных
+                if (coin.history.length > 500) {
+                    coin.history.shift();
+                }
+                
+                // Постепенно уменьшаем объем торгов
+                coin.volume *= 0.9;
+            });
+            
+            // Проверка позиций
+            this.checkPositions();
+            
+            // Сохранение состояния
+            this.saveToStorage();
+            
+            // Обновление UI
+            if (window.updatePrices) window.updatePrices();
+            if (window.updatePositions) window.updatePositions();
+            
+        }, 5000); // Обновление каждые 5 секунд
+    }
+    
+    // Открытие позиции влияет на цену
     openPosition(type, amount) {
         const coin = this.coins[this.currentCoin];
         const entryPrice = coin.price;
@@ -161,11 +298,24 @@ startPriceUpdates() {
         
         // Проверка на достаточность средств
         if (leverageAmount > this.balance) {
-            alert('Недостаточно средств для открытия позиции с таким плечом!');
             return false;
         }
         
-        // Расчет стоп-лосса и тейк-профита в абсолютных значениях
+        // Влияние на цену при открытии позиции
+        const volumeImpact = amount * 0.000001; // Влияние объема торгов
+        coin.volume += amount * 0.01; // Увеличиваем объем торгов
+        
+        if (type === 'LONG') {
+            // При покупке цена немного растет
+            coin.price = entryPrice * (1 + volumeImpact);
+            coin.trend = Math.min(coin.trend + 0.1, 1); // Усиливаем тренд вверх
+        } else {
+            // При продаже цена немного падает
+            coin.price = entryPrice * (1 - volumeImpact);
+            coin.trend = Math.max(coin.trend - 0.1, -1); // Усиливаем тренд вниз
+        }
+        
+        // Расчет стоп-лосса и тейк-профита
         const stopLossPrice = type === 'LONG' 
             ? entryPrice * (1 - this.stopLoss / 100)
             : entryPrice * (1 + this.stopLoss / 100);
@@ -181,7 +331,7 @@ startPriceUpdates() {
             entryPrice: entryPrice,
             amount: amount,
             leverage: this.leverage,
-            currentPrice: entryPrice,
+            currentPrice: coin.price,
             stopLoss: stopLossPrice,
             takeProfit: takeProfitPrice,
             timestamp: Date.now(),
@@ -208,24 +358,28 @@ startPriceUpdates() {
         return true;
     }
     
-    // Расчет цены ликвидации
-    calculateLiquidationPrice(type, entryPrice, leverage) {
-        // Простая формула ликвидации при потере 100% залога
-        if (type === 'LONG') {
-            return entryPrice * (1 - 1 / leverage);
-        } else {
-            return entryPrice * (1 + 1 / leverage);
-        }
-    }
-    
-    // Закрытие позиции
+    // Закрытие позиции также влияет на цену
     closePosition(positionId) {
         const positionIndex = this.positions.findIndex(p => p.id === positionId);
-        if (positionIndex === -1) return;
+        if (positionIndex === -1) return 0;
         
         const position = this.positions[positionIndex];
         const coin = this.coins[position.coin];
         const exitPrice = coin.price;
+        
+        // Влияние на цену при закрытии позиции
+        const volumeImpact = position.amount * 0.000001;
+        coin.volume += position.amount * 0.01;
+        
+        if (position.type === 'LONG') {
+            // При закрытии лонга (продажа) цена немного падает
+            coin.price = exitPrice * (1 - volumeImpact * 0.5);
+            coin.trend = Math.max(coin.trend - 0.05, -1);
+        } else {
+            // При закрытии шорта (покупка) цена немного растет
+            coin.price = exitPrice * (1 + volumeImpact * 0.5);
+            coin.trend = Math.min(coin.trend + 0.05, 1);
+        }
         
         // Расчет P&L
         let pnl;
@@ -259,6 +413,16 @@ startPriceUpdates() {
         return pnl;
     }
     
+    // Расчет цены ликвидации
+    calculateLiquidationPrice(type, entryPrice, leverage) {
+        // Простая формула ликвидации при потере 100% залога
+        if (type === 'LONG') {
+            return entryPrice * (1 - 1 / leverage);
+        } else {
+            return entryPrice * (1 + 1 / leverage);
+        }
+    }
+    
     // Проверка позиций на ликвидацию и срабатывание ордеров
     checkPositions() {
         for (let i = this.positions.length - 1; i >= 0; i--) {
@@ -275,12 +439,6 @@ startPriceUpdates() {
                 
                 // Ликвидация!
                 this.balance = 0;
-                this.positions = [];
-                
-                // Показываем уведомление
-                if (window.showLiquidationNotification) {
-                    window.showLiquidationNotification();
-                }
                 
                 // Добавляем в историю
                 this.history.unshift({
@@ -295,6 +453,14 @@ startPriceUpdates() {
                     action: 'LIQUIDATED',
                     pnl: -(position.amount * position.leverage)
                 });
+                
+                // Удаляем все позиции
+                this.positions = [];
+                
+                // Показываем уведомление
+                if (window.showLiquidationNotification) {
+                    window.showLiquidationNotification();
+                }
                 
                 continue;
             }
@@ -342,16 +508,19 @@ startPriceUpdates() {
         return totalPnl;
     }
     
-    // Генерация данных игроков для рейтинга
+    // Генерация данных игроков для рейтинга (по балансу)
     generatePlayers() {
         const players = [
-            { id: 1, name: 'Трейдер Макс', balance: 2450.50, pnl: 1450.50 },
-            { id: 2, name: 'Крипто Волк', balance: 1890.75, pnl: 890.75 },
-            { id: 3, name: 'Биткоин Джо', balance: 1567.30, pnl: 567.30 },
-            { id: 4, name: 'Сатоши Накамото', balance: 1320.10, pnl: 320.10 },
-            { id: 5, name: 'Аноним', balance: 1125.80, pnl: 125.80 },
-            { id: 6, name: 'Новичок', balance: 950.40, pnl: -49.60 },
-            { id: 7, name: 'Лузер', balance: 650.20, pnl: -349.80 }
+            { id: 1, name: 'Крипто Волк', balance: 3250.50, pnl: 2250.50 },
+            { id: 2, name: 'Трейдер Макс', balance: 2890.75, pnl: 1890.75 },
+            { id: 3, name: 'Биткоин Джо', balance: 2567.30, pnl: 1567.30 },
+            { id: 4, name: 'Дельта Про', balance: 2320.10, pnl: 1320.10 },
+            { id: 5, name: 'Аноним', balance: 2125.80, pnl: 1125.80 },
+            { id: 6, name: 'Скальпер', balance: 1950.40, pnl: 950.40 },
+            { id: 7, name: 'Холдер', balance: 1750.20, pnl: 750.20 },
+            { id: 8, name: 'Новичок', balance: 1520.60, pnl: 520.60 },
+            { id: 9, name: 'Скептик', balance: 1280.90, pnl: 280.90 },
+            { id: 10, name: 'Лузер', balance: 650.20, pnl: -349.80 }
         ];
         
         // Добавляем текущего игрока
@@ -362,8 +531,23 @@ startPriceUpdates() {
             pnl: this.calculateTotalPNL()
         });
         
-        // Сортируем по балансу
+        // Сортируем по балансу (по убыванию)
         return players.sort((a, b) => b.balance - a.balance);
+    }
+    
+    // Вспомогательные методы
+    getRandomCoin() {
+        const coins = Object.keys(this.coins);
+        return coins[Math.floor(Math.random() * coins.length)];
+    }
+    
+    shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     }
     
     // Сохранение в localStorage
@@ -371,12 +555,22 @@ startPriceUpdates() {
         const gameData = {
             balance: this.balance,
             positions: this.positions,
-            history: this.history.slice(0, 50), // Сохраняем последние 50 сделок
+            history: this.history.slice(0, 50),
             currentCoin: this.currentCoin,
             leverage: this.leverage,
             stopLoss: this.stopLoss,
-            takeProfit: this.takeProfit
+            takeProfit: this.takeProfit,
+            coins: {} // Сохраняем только текущие цены
         };
+        
+        // Сохраняем текущие цены монет
+        Object.keys(this.coins).forEach(coinName => {
+            gameData.coins[coinName] = {
+                price: this.coins[coinName].price,
+                volume: this.coins[coinName].volume,
+                trend: this.coins[coinName].trend
+            };
+        });
         
         localStorage.setItem('tradingGameData', JSON.stringify(gameData));
     }
@@ -394,6 +588,17 @@ startPriceUpdates() {
                 this.leverage = data.leverage || 5;
                 this.stopLoss = data.stopLoss || 5;
                 this.takeProfit = data.takeProfit || 10;
+                
+                // Восстанавливаем цены монет
+                if (data.coins) {
+                    Object.keys(data.coins).forEach(coinName => {
+                        if (this.coins[coinName]) {
+                            this.coins[coinName].price = data.coins[coinName].price || this.coins[coinName].price;
+                            this.coins[coinName].volume = data.coins[coinName].volume || 0;
+                            this.coins[coinName].trend = data.coins[coinName].trend || 0;
+                        }
+                    });
+                }
             } catch (e) {
                 console.error('Ошибка загрузки данных:', e);
             }
@@ -405,6 +610,15 @@ startPriceUpdates() {
         this.balance = 1000.00;
         this.positions = [];
         this.history = [];
+        
+        // Сбрасываем цены монет к начальным
+        Object.keys(this.coins).forEach(coinName => {
+            this.coins[coinName].price = coinName === 'SHIBA' ? 0.000008 :
+                                       coinName === 'PEPE' ? 0.0000012 : 0.000015;
+            this.coins[coinName].volume = 0;
+            this.coins[coinName].trend = 0;
+        });
+        
         this.saveToStorage();
     }
 }
