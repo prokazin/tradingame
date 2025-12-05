@@ -198,7 +198,7 @@ function initLiquidationNotification() {
     };
 }
 
-// Открытие позиции
+// Обновленная функция openPosition
 function openPosition(type) {
     const amountInput = document.getElementById('orderAmount');
     const amount = parseFloat(amountInput.value);
@@ -213,35 +213,96 @@ function openPosition(type) {
         return;
     }
     
+    // Получаем текущую цену перед открытием
+    const currentPrice = game.coins[game.currentCoin].price;
+    
     const success = game.openPosition(type, amount);
     
     if (success) {
+        // Добавляем маркер на график
+        if (window.addTradeMarker) {
+            window.addTradeMarker(type, currentPrice);
+        }
+        
         // Обновляем UI
         updateUI();
         updatePositionsList();
         updateHistoryList();
         
         // Показываем сообщение об успехе
-        alert(`Позиция ${type} на $${amount} открыта!`);
+        showNotification(`Позиция ${type} на $${amount} открыта!`, 'success');
     }
 }
 
-// Закрытие позиции
-function closePosition(positionId) {
-    const pnl = game.closePosition(positionId);
+// Новая функция для показа уведомлений
+function showNotification(message, type = 'info') {
+    // Создаем временное уведомление
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? 'rgba(76, 217, 100, 0.9)' : 
+                    type === 'error' ? 'rgba(255, 59, 48, 0.9)' : 
+                    'rgba(56, 128, 255, 0.9)'};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        z-index: 10000;
+        max-width: 300px;
+        animation: slideIn 0.3s ease-out;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
     
-    // Обновляем UI
-    updateUI();
-    updatePositionsList();
-    updateHistoryList();
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : 
+                         type === 'error' ? 'fa-exclamation-circle' : 
+                         'fa-info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
     
-    // Показываем результат
-    const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
-    alert(`Позиция закрыта. P&L: ${pnlFormatted}`);
+    document.body.appendChild(notification);
+    
+    // Удаляем через 3 секунды
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
 }
 
-// Обновление всего UI
-function updateUI() {
+// Добавляем стили для анимации
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
     // Обновляем баланс
     const balanceElement = document.getElementById('balance');
     const pnlElement = document.getElementById('pnl');
